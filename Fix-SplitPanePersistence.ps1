@@ -330,9 +330,12 @@ function Update-TerminalActions {
             $settings['actions'] = @()
         }
         
+        # Check if using new format with separate keybindings array
+        $useKeybindingsArray = $settings.ContainsKey('keybindings')
+        
         $desiredActions = @(
             @{
-                keys = 'alt+shift+-'
+                keys = 'alt+shift+minus'
                 command = @{
                     action = 'splitPane'
                     split = 'horizontal'
@@ -358,7 +361,7 @@ function Update-TerminalActions {
         # Add Copilot keybinding if requested
         if ($Copilot) {
             $desiredActions += @{
-                keys = 'ctrl+shift+.'
+                keys = 'ctrl+shift+period'
                 command = @{
                     action = 'splitPane'
                     split = 'auto'
@@ -371,41 +374,86 @@ function Update-TerminalActions {
         
         $modified = $false
         
-        foreach ($desired in $desiredActions) {
-            $existingIndex = -1
-            for ($i = 0; $i -lt $settings['actions'].Count; $i++) {
-                $action = $settings['actions'][$i]
-                if ($action.keys -eq $desired.keys) {
-                    $existingIndex = $i
-                    break
-                }
-            }
-            
-            if ($existingIndex -ge 0) {
-                $existing = $settings['actions'][$existingIndex]
-                $needsUpdate = $false
+        if ($useKeybindingsArray) {
+            # New Windows Terminal format: actions have IDs, keybindings reference them
+            foreach ($desired in $desiredActions) {
+                $actionId = "User.custom.$($desired.keys -replace '[+]', '')"
                 
-                # Check if splitMode is set correctly
-                if ($desired.command.splitMode) {
-                    if ($existing.command -is [hashtable]) {
-                        if ($existing.command.splitMode -ne 'duplicate') {
+                # Check if keybinding exists
+                $existingBinding = $settings['keybindings'] | Where-Object { $_.keys -eq $desired.keys }
+                
+                if (-not $existingBinding) {
+                    # Add action with ID
+                    $actionWithId = @{
+                        command = $desired.command
+                        id = $actionId
+                    }
+                    $settings['actions'] += $actionWithId
+                    
+                    # Add keybinding
+                    $settings['keybindings'] += @{
+                        keys = $desired.keys
+                        id = $actionId
+                    }
+                    $modified = $true
+                    Write-Log "Added action: $($desired.keys)" -Verbose
+                }
+                else {
+                    # Check if the action needs updating (find action by ID)
+                    $bindingId = $existingBinding.id
+                    $existingAction = $settings['actions'] | Where-Object { $_.id -eq $bindingId }
+                    
+                    if ($existingAction) {
+                        $needsUpdate = $false
+                        if ($desired.command.splitMode -and $existingAction.command.splitMode -ne 'duplicate') {
                             $needsUpdate = $true
                         }
-                    } else {
-                        $needsUpdate = $true
+                        if ($needsUpdate) {
+                            $existingAction.command = $desired.command
+                            $modified = $true
+                            Write-Log "Updated action: $($desired.keys)" -Verbose
+                        }
+                    }
+                }
+            }
+        }
+        else {
+            # Old format: actions contain keys directly
+            foreach ($desired in $desiredActions) {
+                $existingIndex = -1
+                for ($i = 0; $i -lt $settings['actions'].Count; $i++) {
+                    $action = $settings['actions'][$i]
+                    if ($action.keys -eq $desired.keys) {
+                        $existingIndex = $i
+                        break
                     }
                 }
                 
-                if ($needsUpdate) {
-                    $settings['actions'][$existingIndex] = $desired
-                    $modified = $true
-                    Write-Log "Updated action: $($desired.keys)" -Verbose
+                if ($existingIndex -ge 0) {
+                    $existing = $settings['actions'][$existingIndex]
+                    $needsUpdate = $false
+                    
+                    if ($desired.command.splitMode) {
+                        if ($existing.command -is [hashtable]) {
+                            if ($existing.command.splitMode -ne 'duplicate') {
+                                $needsUpdate = $true
+                            }
+                        } else {
+                            $needsUpdate = $true
+                        }
+                    }
+                    
+                    if ($needsUpdate) {
+                        $settings['actions'][$existingIndex] = $desired
+                        $modified = $true
+                        Write-Log "Updated action: $($desired.keys)" -Verbose
+                    }
                 }
-            }
-            else {
-                $settings['actions'] += $desired
-                $modified = $true
-                Write-Log "Added action: $($desired.keys)" -Verbose
+                else {
+                    $settings['actions'] += $desired
+                    $modified = $true
+                    Write-Log "Added action: $($desired.keys)" -Verbose
+                }
             }
         }
         
