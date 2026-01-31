@@ -36,6 +36,29 @@ param(
     [switch]$Copilot
 )
 
+# Require PowerShell 7+
+if ($PSVersionTable.PSVersion.Major -lt 7) {
+    Write-Host ""
+    Write-Host "  Whoa there! You're running PowerShell $($PSVersionTable.PSVersion)" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "  This script requires PowerShell 7+, which is better in every way:" -ForegroundColor Yellow
+    Write-Host "    - Faster" -ForegroundColor Gray
+    Write-Host "    - Cross-platform" -ForegroundColor Gray
+    Write-Host "    - Better error handling" -ForegroundColor Gray
+    Write-Host "    - Modern JSON support" -ForegroundColor Gray
+    Write-Host "    - Actually maintained" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "  Install it:" -ForegroundColor Cyan
+    Write-Host "    winget install Microsoft.PowerShell" -ForegroundColor White
+    Write-Host ""
+    Write-Host "  Then set PowerShell 7 as your default profile in Windows Terminal" -ForegroundColor Cyan
+    Write-Host "  (Settings -> Startup -> Default profile -> PowerShell)" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "  Then run: pwsh .\Fix-SplitPanePersistence.ps1" -ForegroundColor White
+    Write-Host ""
+    exit 1
+}
+
 $script:ChangesMode = $false
 
 function Write-Log {
