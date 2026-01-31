@@ -596,49 +596,62 @@ Set-Alias -Name spc -Value Split-Copilot
     }
 }
 
-# Step 8: Check WSL profiles for the Ubuntu.exe bug
+# Step 8: Check and fix WSL profiles for the Ubuntu.exe bug
 if ($terminalSettings) {
     try {
-        $settings = Get-Content $terminalSettings -Raw | ConvertFrom-Json
+        $settingsContent = Get-Content $terminalSettings -Raw
+        $settings = $settingsContent | ConvertFrom-Json
         $wslProfiles = $settings.profiles.list | Where-Object { 
             $_.source -like "*WSL*" -or $_.source -like "*Ubuntu*" -or $_.name -like "*Ubuntu*" -or $_.name -like "*WSL*"
         }
         
+        $wslFixed = $false
+        
         foreach ($wslProfile in $wslProfiles) {
-            $needsFix = $false
-            $distroName = $null
+            # Skip if already using wsl.exe -d
+            if ($wslProfile.commandline -match '^wsl(\.exe)?\s+-d\s+') {
+                continue
+            }
             
             # Check if using default launcher (no commandline) or Ubuntu.exe
             if (-not $wslProfile.commandline -or $wslProfile.commandline -match 'Ubuntu.*\.exe') {
-                $needsFix = $true
+                # Try to find matching distro name
+                $distroName = $null
+                $wslDistros = wsl -l -q 2>$null | Where-Object { $_ -and $_.Trim() }
                 
-                # Try to extract distro name from profile
-                if ($wslProfile.name -match 'Ubuntu[- ]?(\d+\.\d+)?') {
-                    # Get actual distro name from wsl -l
-                    $wslList = wsl -l -q 2>$null | Where-Object { $_ -match 'Ubuntu' } | Select-Object -First 1
-                    if ($wslList) {
-                        $distroName = $wslList.Trim()
+                foreach ($distro in $wslDistros) {
+                    $distro = $distro.Trim() -replace '\x00', ''  # Remove null chars from wsl output
+                    if ($wslProfile.name -match [regex]::Escape($distro) -or $distro -match 'Ubuntu') {
+                        $distroName = $distro
+                        break
+                    }
+                }
+                
+                if ($distroName) {
+                    $newCommandline = "wsl.exe -d $distroName"
+                    
+                    if ($PSCmdlet.ShouldProcess("WSL profile '$($wslProfile.name)'", "Change commandline to '$newCommandline'")) {
+                        # Update the profile
+                        $wslProfile | Add-Member -NotePropertyName 'commandline' -NotePropertyValue $newCommandline -Force
+                        $wslFixed = $true
+                        Write-Log "Fixed WSL profile '$($wslProfile.name)' to use: $newCommandline"
                     }
                 }
             }
-            
-            if ($needsFix -and $distroName) {
-                Write-Host ""
-                Write-Host "  WSL Profile Issue Detected!" -ForegroundColor Yellow
-                Write-Host "  Profile '$($wslProfile.name)' may not preserve directory on split." -ForegroundColor Yellow
-                Write-Host ""
-                Write-Host "  The default Ubuntu launcher doesn't pass the working directory." -ForegroundColor Gray
-                Write-Host "  To fix, change the profile's Command line to:" -ForegroundColor Gray
-                Write-Host ""
-                Write-Host "    wsl.exe -d $distroName" -ForegroundColor Cyan
-                Write-Host ""
-                Write-Host "  See: https://github.com/microsoft/terminal/issues/3158" -ForegroundColor Gray
-                Write-Host ""
-            }
+        }
+        
+        if ($wslFixed) {
+            Backup-File -Path $terminalSettings
+            $settings | ConvertTo-Json -Depth 100 | Set-Content -Path $terminalSettings
+            $script:ChangesMode = $true
+            Write-Host ""
+            Write-Host "  WSL profiles updated to preserve directory on split!" -ForegroundColor Green
+            Write-Host "  See: https://github.com/microsoft/terminal/issues/3158" -ForegroundColor Gray
+            Write-Host ""
         }
     }
     catch {
-        # Silently ignore WSL detection errors
+        Write-Log "Could not check WSL profiles: $_" -Verbose
     }
 }
 
