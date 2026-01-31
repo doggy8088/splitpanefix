@@ -28,7 +28,6 @@ This script configures three things to work together:
 .\Fix-SplitPanePersistence.ps1
 
 # Restart your terminal, then use:
-# Restart your terminal, then use:
 #   Alt+Shift+-    → horizontal split (same directory)
 #   Alt+Shift++    → vertical split (same directory)
 #   Ctrl+Shift+D   → duplicate tab (same directory)
