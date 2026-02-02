@@ -1,28 +1,28 @@
 <#
 .SYNOPSIS
-    Configures PowerShell, Oh My Posh, and Windows Terminal for directory persistence in split panes and tabs.
+    設定 PowerShell、Oh My Posh 與 Windows Terminal，讓分割窗格與分頁能保留目前工作目錄。
 
 .DESCRIPTION
-    This script ensures:
-    - PowerShell profile exists with proper Oh My Posh initialization
-    - Oh My Posh theme emits directory info via OSC99
-    - Windows Terminal keybindings preserve directory when splitting/duplicating
+    本腳本會確保：
+    - PowerShell 設定檔（profile）存在，且 Oh My Posh 初始化正確
+    - Oh My Posh 主題透過 OSC99 送出目錄資訊
+    - Windows Terminal 的按鍵繫結在分割/複製時能保留目錄
 
 .PARAMETER WhatIf
-    Shows what changes would be made without actually applying them.
+    顯示將會做哪些變更，但不會真的套用。
 
 .PARAMETER Verbose
-    Enables detailed logging of all operations.
+    顯示所有操作的詳細記錄。
 
 .PARAMETER ThemePath
-    Optional custom path for the user-writable theme directory.
+    選用：指定「使用者可寫入」的主題資料夾路徑。
 
 .PARAMETER Copilot
-    Adds a keybinding (Ctrl+Shift+.) to split pane and launch GitHub Copilot CLI.
+    新增一個按鍵繫結（Ctrl+Shift+.），用於分割窗格並啟動 GitHub Copilot CLI。
 
 .EXAMPLE
     .\Fix-SplitPanePersistence.ps1
-    
+
 .EXAMPLE
     .\Fix-SplitPanePersistence.ps1 -WhatIf -Verbose
 
@@ -36,25 +36,25 @@ param(
     [switch]$Copilot
 )
 
-# Require PowerShell 7+
+# 需要 PowerShell 7+
 if ($PSVersionTable.PSVersion.Major -lt 7) {
     Write-Host ""
-    Write-Host "  Whoa there! You're running PowerShell $($PSVersionTable.PSVersion)" -ForegroundColor Red
+    Write-Host "  等等！你目前正在使用 PowerShell $($PSVersionTable.PSVersion)" -ForegroundColor Red
     Write-Host ""
-    Write-Host "  This script requires PowerShell 7+, which is better in every way:" -ForegroundColor Yellow
-    Write-Host "    - Faster" -ForegroundColor Gray
-    Write-Host "    - Cross-platform" -ForegroundColor Gray
-    Write-Host "    - Better error handling" -ForegroundColor Gray
-    Write-Host "    - Modern JSON support" -ForegroundColor Gray
-    Write-Host "    - Actually maintained" -ForegroundColor Gray
+    Write-Host "  此腳本需要 PowerShell 7+（而且各方面都更好）：" -ForegroundColor Yellow
+    Write-Host "    - 更快" -ForegroundColor Gray
+    Write-Host "    - 跨平台" -ForegroundColor Gray
+    Write-Host "    - 更好的錯誤處理" -ForegroundColor Gray
+    Write-Host "    - 現代化的 JSON 支援" -ForegroundColor Gray
+    Write-Host "    - 仍在積極維護" -ForegroundColor Gray
     Write-Host ""
-    Write-Host "  Install it:" -ForegroundColor Cyan
+    Write-Host "  安裝方式：" -ForegroundColor Cyan
     Write-Host "    winget install Microsoft.PowerShell" -ForegroundColor White
     Write-Host ""
-    Write-Host "  Then set PowerShell 7 as your default profile in Windows Terminal" -ForegroundColor Cyan
-    Write-Host "  (Settings -> Startup -> Default profile -> PowerShell)" -ForegroundColor Gray
+    Write-Host "  接著在 Windows Terminal 將 PowerShell 7 設為預設設定檔" -ForegroundColor Cyan
+    Write-Host "  （設定 -> 啟動 -> 預設設定檔 -> PowerShell）" -ForegroundColor Gray
     Write-Host ""
-    Write-Host "  Then run: pwsh .\Fix-SplitPanePersistence.ps1" -ForegroundColor White
+    Write-Host "  然後執行：pwsh .\Fix-SplitPanePersistence.ps1" -ForegroundColor White
     Write-Host ""
     exit 1
 }
@@ -79,18 +79,18 @@ function Backup-File {
     param([string]$Path)
     if (-not (Test-Path $Path)) { return $null }
     $backupPath = "$Path.bak-$(Get-Timestamp)"
-    # Ensure unique backup path if one already exists
+    # 若備份檔名已存在，確保產生唯一的備份路徑
     $counter = 0
     while (Test-Path $backupPath) {
         $counter++
         $backupPath = "$Path.bak-$(Get-Timestamp)-$counter"
     }
     if ($WhatIfPreference) {
-        Write-Log "Would backup: $Path -> $backupPath" -Verbose
+        Write-Log "將會備份：$Path -> $backupPath" -Verbose
         return $backupPath
     }
     Copy-Item -Path $Path -Destination $backupPath
-    Write-Log "Backed up: $Path -> $backupPath" -Verbose
+    Write-Log "已備份：$Path -> $backupPath" -Verbose
     return $backupPath
 }
 
@@ -99,16 +99,16 @@ function Ensure-ProfileExists {
     $profileDir = Split-Path $profilePath -Parent
 
     if (-not (Test-Path $profileDir)) {
-        if ($PSCmdlet.ShouldProcess($profileDir, "Create directory")) {
+        if ($PSCmdlet.ShouldProcess($profileDir, "建立資料夾")) {
             New-Item -ItemType Directory -Path $profileDir -Force | Out-Null
-            Write-Log "Created profile directory: $profileDir"
+            Write-Log "已建立設定檔資料夾：$profileDir"
         }
     }
 
     if (-not (Test-Path $profilePath)) {
-        if ($PSCmdlet.ShouldProcess($profilePath, "Create empty profile")) {
+        if ($PSCmdlet.ShouldProcess($profilePath, "建立空白設定檔")) {
             New-Item -ItemType File -Path $profilePath -Force | Out-Null
-            Write-Log "Created PowerShell profile: $profilePath"
+            Write-Log "已建立 PowerShell 設定檔：$profilePath"
         }
     }
 
@@ -135,37 +135,37 @@ function Get-OMPVersion {
 
 function Test-OMPVersionCompatible {
     param([version]$CurrentVersion)
-    
-    # Minimum version required for "pwd": "osc99" feature
+
+    # "pwd": "osc99" 功能所需的最低版本
     $minVersion = [version]"3.151.0"
-    
+
     if ($null -eq $CurrentVersion) {
         return $false
     }
-    
+
     return $CurrentVersion -ge $minVersion
 }
 
 function Show-OMPVersionWarning {
     param([version]$CurrentVersion)
-    
+
     Write-Host ""
-    Write-Host "  ⚠️  Oh My Posh Version Warning" -ForegroundColor Yellow
+    Write-Host "  ⚠️  Oh My Posh 版本警告" -ForegroundColor Yellow
     Write-Host ""
-    Write-Host "  Your Oh My Posh version: $CurrentVersion" -ForegroundColor White
-    Write-Host "  Minimum required version: 3.151.0" -ForegroundColor White
+    Write-Host "  你的 Oh My Posh 版本：$CurrentVersion" -ForegroundColor White
+    Write-Host "  最低需求版本：3.151.0" -ForegroundColor White
     Write-Host ""
-    Write-Host "  This script will add " -ForegroundColor Gray -NoNewline
+    Write-Host "  本腳本將會在你的 Oh My Posh 主題加入 " -ForegroundColor Gray -NoNewline
     Write-Host '"pwd": "osc99"' -ForegroundColor Cyan -NoNewline
-    Write-Host " to your Oh My Posh theme." -ForegroundColor Gray
-    Write-Host "  This feature is only supported in Oh My Posh v3.151.0 and newer." -ForegroundColor Gray
+    Write-Host "。" -ForegroundColor Gray
+    Write-Host "  這個功能僅支援 Oh My Posh v3.151.0 與更新版本。" -ForegroundColor Gray
     Write-Host ""
-    Write-Host "  If you continue with an outdated version, your Oh My Posh may break!" -ForegroundColor Red
+    Write-Host "  如果你使用過舊版本仍選擇繼續，你的 Oh My Posh 設定可能會壞掉！" -ForegroundColor Red
     Write-Host ""
-    Write-Host "  To update Oh My Posh (recommended):" -ForegroundColor Cyan
+    Write-Host "  建議先升級 Oh My Posh：" -ForegroundColor Cyan
     Write-Host "    winget upgrade JanDeDobbeleer.OhMyPosh" -ForegroundColor White
     Write-Host ""
-    Write-Host "  Alternative (download and execute script from ohmyposh.dev):" -ForegroundColor Gray
+    Write-Host "  或者（從 ohmyposh.dev 下載並執行安裝腳本）：" -ForegroundColor Gray
     Write-Host "    Set-ExecutionPolicy Bypass -Scope Process -Force; " -ForegroundColor DarkGray -NoNewline
     Write-Host "Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://ohmyposh.dev/install.ps1'))" -ForegroundColor DarkGray
     Write-Host ""
@@ -183,9 +183,9 @@ function Get-ThemePathFromProfile {
     $pattern = "oh-my-posh\s+init\s+pwsh\s+--config\s+['""]?([^'""|\s]+)['""]?\s*\|\s*Invoke-Expression"
     if ($ProfileContent -match $pattern) {
         $themePath = $Matches[1]
-        # Expand environment variables - handle %VAR% syntax
+        # 展開環境變數（支援 %VAR% 語法）
         $themePath = [System.Environment]::ExpandEnvironmentVariables($themePath)
-        # Handle PowerShell variable syntax like $env:POSH_THEMES_PATH or $env:COMPUTERNAME
+        # 處理 PowerShell 變數語法，例如 $env:POSH_THEMES_PATH 或 $env:COMPUTERNAME
         while ($themePath -match '\$env:(\w+)') {
             $varName = $Matches[1]
             $varValue = [System.Environment]::GetEnvironmentVariable($varName)
@@ -195,7 +195,7 @@ function Get-ThemePathFromProfile {
                 break
             }
         }
-        # Expand ~ to user profile
+        # 將 ~ 展開為使用者家目錄
         if ($themePath.StartsWith('~')) {
             $themePath = $themePath -replace '^~', $env:USERPROFILE
         }
@@ -206,60 +206,60 @@ function Get-ThemePathFromProfile {
 
 function Fix-ProfileOMPInit {
     param([string]$ProfilePath)
-    
+
     if (-not (Test-Path $ProfilePath)) { return $false }
-    
+
     try {
         $content = Get-Content $ProfilePath -Raw -ErrorAction Stop
         if (-not $content) { $content = "" }
     $originalContent = $content
     $modified = $false
 
-    # Comment out custom prompt functions
+    # 將自訂 prompt 函式註解起來
     $promptPattern = '(?ms)^(\s*function\s+prompt\s*\{.*?\n\})'
     if ($content -match $promptPattern) {
         Backup-File -Path $ProfilePath
         $content = [regex]::Replace($content, $promptPattern, @"
-# [Fix-SplitPanePersistence] Commented out custom prompt to allow Oh My Posh
+# [Fix-SplitPanePersistence] 已註解自訂 prompt，讓 Oh My Posh 能正常接管
 <#
 `$1
 #>
 "@)
         $modified = $true
-        Write-Log "Commented out custom prompt function in profile"
+        Write-Log "已在設定檔中註解自訂 prompt 函式"
     }
 
-    # Find all OMP init lines
+    # 找出所有 Oh My Posh 初始化行
     $initLines = Get-OMPInitLines -ProfileContent $content
-    
+
     if ($initLines.Count -eq 0) {
-        # No init line found - add one with default theme
-        $defaultTheme = if ($env:POSH_THEMES_PATH) { 
-            Join-Path $env:POSH_THEMES_PATH "jandedobbeleer.omp.json" 
-        } else { 
-            "~/.oh-my-posh/themes/jandedobbeleer.omp.json" 
+        # 沒有找到初始化行：使用預設主題新增一行
+        $defaultTheme = if ($env:POSH_THEMES_PATH) {
+            Join-Path $env:POSH_THEMES_PATH "jandedobbeleer.omp.json"
+        } else {
+            "~/.oh-my-posh/themes/jandedobbeleer.omp.json"
         }
         $initLine = "`noh-my-posh init pwsh --config '$defaultTheme' | Invoke-Expression`n"
         $content += $initLine
         $modified = $true
-        Write-Log "Added Oh My Posh init line to profile"
+        Write-Log "已在設定檔加入 Oh My Posh 初始化行"
     }
     elseif ($initLines.Count -gt 1) {
-        # Multiple init lines - comment out all but first
+        # 有多個初始化行：保留第一行，其餘全部註解
         if (-not $modified) { Backup-File -Path $ProfilePath }
         $first = $true
         foreach ($match in $initLines) {
             if ($first) { $first = $false; continue }
             $original = $match.Value
-            $commented = "# [Fix-SplitPanePersistence] Duplicate init line commented out:`n# $original"
+            $commented = "# [Fix-SplitPanePersistence] 已註解重複的初始化行：`n# $original"
             $content = $content.Replace($original, $commented)
         }
         $modified = $true
-        Write-Log "Commented out duplicate Oh My Posh init lines"
+        Write-Log "已註解重複的 Oh My Posh 初始化行"
     }
 
     if ($modified -and $content -ne $originalContent) {
-        if ($PSCmdlet.ShouldProcess($ProfilePath, "Update profile")) {
+        if ($PSCmdlet.ShouldProcess($ProfilePath, "更新設定檔")) {
             Set-Content -Path $ProfilePath -Value $content -ErrorAction Stop
             $script:ChangesMode = $true
         }
@@ -268,118 +268,118 @@ function Fix-ProfileOMPInit {
     return $false
     }
     catch {
-        Write-Log "Error updating profile: $_"
+        Write-Log "更新設定檔時發生錯誤：$_"
         return $false
     }
 }
 
 function Get-UserThemePath {
     param([string]$OriginalThemePath)
-    
-    $userThemeDir = if ($ThemePath) { $ThemePath } else { 
-        Join-Path $env:LOCALAPPDATA "oh-my-posh\themes" 
+
+    $userThemeDir = if ($ThemePath) { $ThemePath } else {
+        Join-Path $env:LOCALAPPDATA "oh-my-posh\themes"
     }
-    
+
     if (-not (Test-Path $userThemeDir)) {
-        if ($PSCmdlet.ShouldProcess($userThemeDir, "Create theme directory")) {
+        if ($PSCmdlet.ShouldProcess($userThemeDir, "建立主題資料夾")) {
             New-Item -ItemType Directory -Path $userThemeDir -Force | Out-Null
-            Write-Log "Created user theme directory: $userThemeDir" -Verbose
+            Write-Log "已建立使用者主題資料夾：$userThemeDir" -Verbose
         }
     }
-    
+
     $themeName = Split-Path $OriginalThemePath -Leaf
     return Join-Path $userThemeDir $themeName
 }
 
 function Ensure-ThemeIsWritable {
     param([string]$ProfilePath, [string]$CurrentThemePath)
-    
+
     if (-not $CurrentThemePath -or -not (Test-Path $CurrentThemePath)) {
-        Write-Log "Theme file not found: $CurrentThemePath" -Verbose
+        Write-Log "找不到主題檔案：$CurrentThemePath" -Verbose
         return $null
     }
-    
-    # Check if theme is in built-in themes folder
+
+    # 檢查主題是否位於內建主題資料夾
     $poshThemesPath = $env:POSH_THEMES_PATH
     $isBuiltIn = $poshThemesPath -and $CurrentThemePath.StartsWith($poshThemesPath, [StringComparison]::OrdinalIgnoreCase)
-    
+
     if ($isBuiltIn) {
         $userThemePath = Get-UserThemePath -OriginalThemePath $CurrentThemePath
-        
-        if ($PSCmdlet.ShouldProcess($CurrentThemePath, "Copy theme to user directory")) {
+
+        if ($PSCmdlet.ShouldProcess($CurrentThemePath, "將主題複製到使用者資料夾")) {
             Copy-Item -Path $CurrentThemePath -Destination $userThemePath -Force
-            Write-Log "Copied theme to user directory: $userThemePath"
-            
-            # Update profile to use new theme path
+            Write-Log "已將主題複製到使用者資料夾：$userThemePath"
+
+            # 更新設定檔以使用新的主題路徑
             $profileContent = Get-Content $ProfilePath -Raw
             $escapedOld = [regex]::Escape($CurrentThemePath)
-            # Also handle the $env: version
+            # 同時處理 $env: 版本的路徑
             $envPath = $CurrentThemePath.Replace($poshThemesPath, '$env:POSH_THEMES_PATH')
             $escapedEnvOld = [regex]::Escape($envPath)
-            
+
             $newContent = $profileContent -replace $escapedOld, $userThemePath
             $newContent = $newContent -replace [regex]::Escape('$env:POSH_THEMES_PATH'), $userThemePath.Replace((Split-Path $userThemePath -Leaf), '').TrimEnd('\')
-            
+
             if ($newContent -ne $profileContent) {
                 Backup-File -Path $ProfilePath
                 Set-Content -Path $ProfilePath -Value $newContent -NoNewline
-                Write-Log "Updated profile to use user theme path"
+                Write-Log "已更新設定檔，改用使用者主題路徑"
             }
             $script:ChangesMode = $true
         }
         return $userThemePath
     }
-    
+
     return $CurrentThemePath
 }
 
 function Update-ThemePwd {
     param([string]$ThemePath)
-    
+
     if (-not $ThemePath -or -not (Test-Path $ThemePath)) {
-        Write-Log "Cannot update theme - file not found: $ThemePath" -Verbose
+        Write-Log "無法更新主題：找不到檔案 $ThemePath" -Verbose
         return $false
     }
-    
+
     try {
         $themeContent = Get-Content $ThemePath -Raw
         $theme = $themeContent | ConvertFrom-Json -AsHashtable
-        
+
         $currentPwd = $theme['pwd']
         if ($currentPwd -eq 'osc99') {
-            Write-Log "Theme already has pwd: osc99" -Verbose
+            Write-Log "主題已包含 pwd: osc99" -Verbose
             return $false
         }
-        
+
         $theme['pwd'] = 'osc99'
-        
-        if ($PSCmdlet.ShouldProcess($ThemePath, "Set pwd to osc99")) {
+
+        if ($PSCmdlet.ShouldProcess($ThemePath, "將 pwd 設為 osc99")) {
             Backup-File -Path $ThemePath
             $theme | ConvertTo-Json -Depth 100 | Set-Content -Path $ThemePath
-            Write-Log "Updated theme with pwd: osc99"
+            Write-Log "已更新主題：加入 pwd: osc99"
             $script:ChangesMode = $true
         }
         return $true
     }
     catch {
-        Write-Log "Error updating theme: $_"
+        Write-Log "更新主題時發生錯誤：$_"
         return $false
     }
 }
 
 function Find-TerminalSettings {
     $locations = @(
-        # Packaged (Microsoft Store) version
+        # 封裝版（Microsoft Store）
         "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json"
-        # Preview version
+        # 預覽版
         "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe\LocalState\settings.json"
-        # Unpackaged/portable version
+        # 非封裝/可攜版
         "$env:LOCALAPPDATA\Microsoft\Windows Terminal\settings.json"
     )
-    
+
     foreach ($loc in $locations) {
         if (Test-Path $loc) {
-            Write-Log "Found Windows Terminal settings: $loc" -Verbose
+            Write-Log "已找到 Windows Terminal 設定檔：$loc" -Verbose
             return $loc
         }
     }
@@ -388,31 +388,31 @@ function Find-TerminalSettings {
 
 function Update-TerminalActions {
     param([string]$SettingsPath)
-    
+
     if (-not $SettingsPath -or -not (Test-Path $SettingsPath)) {
-        Write-Log "Windows Terminal settings not found"
+        Write-Log "找不到 Windows Terminal settings.json"
         return $false
     }
-    
+
     try {
         $settingsContent = Get-Content $SettingsPath -Raw
-        # Remove comments for parsing (Windows Terminal allows // comments)
+        # 解析前移除註解（Windows Terminal 允許 // 註解）
         $cleanJson = $settingsContent -replace '(?m)^\s*//.*$', '' -replace ',(\s*[}\]])', '$1'
         $settings = $cleanJson | ConvertFrom-Json -AsHashtable
-        
-        # Validate settings structure
+
+        # 驗證 settings 結構
         if ($settings -isnot [hashtable] -and $settings -isnot [System.Collections.Specialized.OrderedDictionary]) {
-            Write-Log "Windows Terminal settings has unexpected structure"
+            Write-Log "Windows Terminal settings 的結構不符合預期"
             return $false
         }
-        
+
         if (-not $settings.ContainsKey('actions')) {
             $settings['actions'] = @()
         }
-        
-        # Check if using new format with separate keybindings array
+
+        # 檢查是否使用新版格式（獨立的 keybindings 陣列）
         $useKeybindingsArray = $settings.ContainsKey('keybindings')
-        
+
         $desiredActions = @(
             @{
                 keys = 'alt+shift+minus'
@@ -437,41 +437,41 @@ function Update-TerminalActions {
                 }
             }
         )
-        
-        # Add Copilot keybinding if requested - NOTE: This is handled via profile function instead
-        # Windows Terminal can't combine splitMode:duplicate with commandline (directory inheritance breaks)
-        
+
+        # 若要求 Copilot 按鍵：注意，這裡改由設定檔函式處理
+        # Windows Terminal 無法同時使用 splitMode: duplicate 與自訂 commandline（目錄繼承會失效）
+
         $modified = $false
-        
+
         if ($useKeybindingsArray) {
-            # New Windows Terminal format: actions have IDs, keybindings reference them
+            # 新版 Windows Terminal 格式：actions 具有 id，keybindings 透過 id 參照
             foreach ($desired in $desiredActions) {
                 $actionId = "User.custom.$($desired.keys -replace '[+]', '')"
-                
-                # Check if keybinding exists
+
+                # 檢查是否已存在按鍵繫結
                 $existingBinding = $settings['keybindings'] | Where-Object { $_.keys -eq $desired.keys }
-                
+
                 if (-not $existingBinding) {
-                    # Add action with ID
+                    # 新增帶有 id 的 action
                     $actionWithId = @{
                         command = $desired.command
                         id = $actionId
                     }
                     $settings['actions'] += $actionWithId
-                    
-                    # Add keybinding
+
+                    # 新增 keybinding
                     $settings['keybindings'] += @{
                         keys = $desired.keys
                         id = $actionId
                     }
                     $modified = $true
-                    Write-Log "Added action: $($desired.keys)" -Verbose
+                    Write-Log "已新增動作：$($desired.keys)" -Verbose
                 }
                 else {
-                    # Check if the action needs updating (find action by ID)
+                    # 檢查是否需要更新動作（依 id 找 action）
                     $bindingId = $existingBinding.id
                     $existingAction = $settings['actions'] | Where-Object { $_.id -eq $bindingId }
-                    
+
                     if ($existingAction) {
                         $needsUpdate = $false
                         if ($desired.command.splitMode -and $existingAction.command.splitMode -ne 'duplicate') {
@@ -480,14 +480,14 @@ function Update-TerminalActions {
                         if ($needsUpdate) {
                             $existingAction.command = $desired.command
                             $modified = $true
-                            Write-Log "Updated action: $($desired.keys)" -Verbose
+                            Write-Log "已更新動作：$($desired.keys)" -Verbose
                         }
                     }
                 }
             }
         }
         else {
-            # Old format: actions contain keys directly
+            # 舊版格式：actions 直接包含 keys
             foreach ($desired in $desiredActions) {
                 $existingIndex = -1
                 for ($i = 0; $i -lt $settings['actions'].Count; $i++) {
@@ -497,11 +497,11 @@ function Update-TerminalActions {
                         break
                     }
                 }
-                
+
                 if ($existingIndex -ge 0) {
                     $existing = $settings['actions'][$existingIndex]
                     $needsUpdate = $false
-                    
+
                     if ($desired.command.splitMode) {
                         if ($existing.command -is [hashtable]) {
                             if ($existing.command.splitMode -ne 'duplicate') {
@@ -511,126 +511,126 @@ function Update-TerminalActions {
                             $needsUpdate = $true
                         }
                     }
-                    
+
                     if ($needsUpdate) {
                         $settings['actions'][$existingIndex] = $desired
                         $modified = $true
-                        Write-Log "Updated action: $($desired.keys)" -Verbose
+                        Write-Log "已更新動作：$($desired.keys)" -Verbose
                     }
                 }
                 else {
                     $settings['actions'] += $desired
                     $modified = $true
-                    Write-Log "Added action: $($desired.keys)" -Verbose
+                    Write-Log "已新增動作：$($desired.keys)" -Verbose
                 }
             }
         }
-        
+
         if ($modified) {
-            if ($PSCmdlet.ShouldProcess($SettingsPath, "Update Windows Terminal actions")) {
+            if ($PSCmdlet.ShouldProcess($SettingsPath, "更新 Windows Terminal 動作/按鍵繫結")) {
                 Backup-File -Path $SettingsPath
                 $settings | ConvertTo-Json -Depth 100 | Set-Content -Path $SettingsPath
-                Write-Log "Updated Windows Terminal settings"
+                Write-Log "已更新 Windows Terminal settings.json"
                 $script:ChangesMode = $true
             }
             return $true
         }
         else {
-            Write-Log "Windows Terminal actions already configured" -Verbose
+            Write-Log "Windows Terminal 動作/按鍵繫結已設定完成" -Verbose
             return $false
         }
     }
     catch {
-        Write-Log "Error updating Windows Terminal settings: $_"
+        Write-Log "更新 Windows Terminal settings.json 時發生錯誤：$_"
         return $false
     }
 }
 
 # Main execution
-Write-Log "Starting Fix-SplitPanePersistence..."
+Write-Log "開始執行 Fix-SplitPanePersistence..."
 
-# Step 1: Ensure profile exists
+# 步驟 1：確保設定檔存在
 $profilePath = Ensure-ProfileExists
-Write-Log "Profile path: $profilePath" -Verbose
+Write-Log "設定檔路徑：$profilePath" -Verbose
 
-# Step 2: Check for Oh My Posh
+# 步驟 2：檢查 Oh My Posh
 $ompInstalled = Get-OMPInstalled
 
 if ($ompInstalled) {
-    Write-Log "Oh My Posh detected" -Verbose
-    
-    # Step 2a: Check Oh My Posh version
+    Write-Log "偵測到 Oh My Posh" -Verbose
+
+    # 步驟 2a：檢查 Oh My Posh 版本
     $ompVersion = Get-OMPVersion
     $versionCompatible = Test-OMPVersionCompatible -CurrentVersion $ompVersion
-    
+
     if ($ompVersion) {
-        Write-Log "Oh My Posh version: $ompVersion" -Verbose
+        Write-Log "Oh My Posh 版本：$ompVersion" -Verbose
     }
-    
+
     $proceedWithOMP = $true
-    
+
     if (-not $versionCompatible) {
         Show-OMPVersionWarning -CurrentVersion $ompVersion
-        
-        # In WhatIf mode, just show the warning and proceed
+
+        # WhatIf 模式下：只顯示警告並繼續
         if ($WhatIfPreference) {
-            Write-Host "  [DryRun] Would prompt for confirmation, but continuing in WhatIf mode" -ForegroundColor Gray
+            Write-Host "  [DryRun] 原本會詢問你是否確認繼續，但目前為 WhatIf 模式，因此直接繼續" -ForegroundColor Gray
             Write-Host ""
         }
         else {
-            # Prompt user for confirmation
-            # Any response other than 'y' or 'Y' (including empty/Enter) is treated as "No" (safe default)
-            $response = Read-Host "Do you want to continue anyway? This may break your Oh My Posh setup. (y/N)"
+            # 詢問使用者是否確認繼續
+            # 除了 'y' 或 'Y' 以外（包含直接按 Enter 空白）一律視為「否」（安全預設）
+            $response = Read-Host "仍要繼續嗎？這可能會破壞你的 Oh My Posh 設定。（y/N）"
             if ($response -notmatch '^[Yy]') {
                 Write-Host ""
-                Write-Host "  Skipping Oh My Posh theme modifications." -ForegroundColor Yellow
-                Write-Host "  Please update Oh My Posh and run this script again." -ForegroundColor Yellow
+                Write-Host "  將略過 Oh My Posh 主題修改。" -ForegroundColor Yellow
+                Write-Host "  請先更新 Oh My Posh，然後再次執行本腳本。" -ForegroundColor Yellow
                 Write-Host ""
                 $proceedWithOMP = $false
             }
             else {
                 Write-Host ""
-                Write-Host "  Proceeding with Oh My Posh modifications..." -ForegroundColor Yellow
+                Write-Host "  將繼續執行 Oh My Posh 相關修改..." -ForegroundColor Yellow
                 Write-Host ""
             }
         }
     }
-    
+
     if ($proceedWithOMP) {
-        # Step 3: Fix profile OMP init
+        # 步驟 3：修正設定檔的 OMP 初始化
         $null = Fix-ProfileOMPInit -ProfilePath $profilePath
-        
-        # Step 4: Get and ensure writable theme
+
+        # 步驟 4：取得並確保主題可寫
         $profileContent = Get-Content $profilePath -Raw
         $themePath = Get-ThemePathFromProfile -ProfileContent $profileContent
-        Write-Log "Detected theme path: $themePath" -Verbose
-        
+        Write-Log "偵測到主題路徑：$themePath" -Verbose
+
         if ($themePath) {
             $writableThemePath = Ensure-ThemeIsWritable -ProfilePath $profilePath -CurrentThemePath $themePath
-            
-            # Step 5: Update theme pwd setting
+
+            # 步驟 5：更新主題的 pwd 設定
             if ($writableThemePath) {
                 $null = Update-ThemePwd -ThemePath $writableThemePath
             }
         }
         else {
-            Write-Log "Could not detect theme path from profile"
+            Write-Log "無法從設定檔偵測主題路徑"
         }
     }
 }
 else {
-    Write-Log "Oh My Posh not installed - adding OSC 9;9 prompt function"
-    
-    # Add the prompt function that emits OSC 9;9 for directory tracking
+    Write-Log "未安裝 Oh My Posh：將加入會送出 OSC 9;9 的 prompt 函式"
+
+    # 加入 prompt 函式：送出 OSC 9;9 以供 Windows Terminal 追蹤目前目錄
     $profileContent = Get-Content $profilePath -Raw
     if (-not $profileContent) { $profileContent = "" }
-    
-    # Check if there's already an OSC 9;9 prompt or the marker
+
+    # 檢查是否已存在 OSC 9;9 prompt 或其標記
     if ($profileContent -notmatch 'OSC 9;9' -and $profileContent -notmatch '\[char\]27\]\]9;9') {
         $oscPromptFunction = @'
 
-# OSC 9;9 - Tell Windows Terminal the current directory (for split pane directory inheritance)
-# Added by Fix-SplitPanePersistence.ps1
+# OSC 9;9 - 告訴 Windows Terminal 目前目錄（用於分割窗格/複製分頁時繼承目錄）
+# 由 Fix-SplitPanePersistence.ps1 新增
 function prompt {
     $loc = $executionContext.SessionState.Path.CurrentLocation
     $out = ""
@@ -641,117 +641,117 @@ function prompt {
     return $out
 }
 '@
-        if ($PSCmdlet.ShouldProcess($profilePath, "Add OSC 9;9 prompt function")) {
+        if ($PSCmdlet.ShouldProcess($profilePath, "加入 OSC 9;9 prompt 函式")) {
             Backup-File -Path $profilePath
             Add-Content -Path $profilePath -Value $oscPromptFunction
-            Write-Log "Added OSC 9;9 prompt function to profile"
+            Write-Log "已在設定檔加入 OSC 9;9 prompt 函式"
             $script:ChangesMode = $true
         }
     }
     else {
-        Write-Log "Profile already has OSC 9;9 prompt configuration" -Verbose
+        Write-Log "設定檔已包含 OSC 9;9 prompt 設定" -Verbose
     }
 }
 
-# Step 6: Update Windows Terminal
+# 步驟 6：更新 Windows Terminal
 $terminalSettings = Find-TerminalSettings
 if ($terminalSettings) {
     $null = Update-TerminalActions -SettingsPath $terminalSettings
 }
 else {
-    Write-Log "Windows Terminal settings not found - skipping Terminal configuration"
+    Write-Log "找不到 Windows Terminal settings.json：略過 Terminal 設定"
 }
 
-# Step 7: Add Copilot split function if requested
+# 步驟 7：若有指定，加入 Copilot 分割窗格函式
 if ($Copilot) {
     $profileContent = Get-Content $profilePath -Raw
     if ($profileContent -notmatch 'Split-Copilot') {
         $copilotFunction = @'
 
-# Split pane and launch GitHub Copilot CLI in current directory
+# 分割窗格並在目前目錄啟動 GitHub Copilot CLI
 function Split-Copilot {
     wt -w 0 split-pane -d "$PWD" pwsh -NoLogo -NoExit -Command "copilot"
 }
 Set-Alias -Name spc -Value Split-Copilot
 '@
-        if ($PSCmdlet.ShouldProcess($profilePath, "Add Split-Copilot function")) {
+        if ($PSCmdlet.ShouldProcess($profilePath, "加入 Split-Copilot 函式")) {
             Backup-File -Path $profilePath
             Add-Content -Path $profilePath -Value $copilotFunction
-            Write-Log "Added Split-Copilot function (alias: spc) to profile"
+            Write-Log "已在設定檔加入 Split-Copilot 函式（別名：spc）"
             $script:ChangesMode = $true
         }
     }
     else {
-        Write-Log "Split-Copilot function already in profile" -Verbose
+        Write-Log "設定檔已包含 Split-Copilot 函式" -Verbose
     }
 }
 
-# Step 8: Check and fix WSL profiles for the Ubuntu.exe bug
+# 步驟 8：檢查並修復 WSL 設定檔（Ubuntu.exe 問題）
 if ($terminalSettings) {
     try {
         $settingsContent = Get-Content $terminalSettings -Raw
         $settings = $settingsContent | ConvertFrom-Json
-        $wslProfiles = $settings.profiles.list | Where-Object { 
+        $wslProfiles = $settings.profiles.list | Where-Object {
             $_.source -like "*WSL*" -or $_.source -like "*Ubuntu*" -or $_.name -like "*Ubuntu*" -or $_.name -like "*WSL*"
         }
-        
+
         $wslFixed = $false
-        
+
         foreach ($wslProfile in $wslProfiles) {
-            # Skip if already using wsl.exe -d
+            # 若已使用 wsl.exe -d，直接略過
             if ($wslProfile.commandline -match '^wsl(\.exe)?\s+-d\s+') {
                 continue
             }
-            
-            # Check if using default launcher (no commandline) or Ubuntu.exe
+
+            # 檢查是否使用預設啟動器（無 commandline）或 Ubuntu.exe
             if (-not $wslProfile.commandline -or $wslProfile.commandline -match 'Ubuntu.*\.exe') {
-                # Try to find matching distro name
+                # 嘗試找出對應的發行版名稱
                 $distroName = $null
                 $wslDistros = wsl -l -q 2>$null | Where-Object { $_ -and $_.Trim() }
-                
+
                 foreach ($distro in $wslDistros) {
-                    $distro = $distro.Trim() -replace '\x00', ''  # Remove null chars from wsl output
+                    $distro = $distro.Trim() -replace '\x00', ''  # 移除 wsl 輸出中的 NUL 字元
                     if ($wslProfile.name -match [regex]::Escape($distro) -or $distro -match 'Ubuntu') {
                         $distroName = $distro
                         break
                     }
                 }
-                
+
                 if ($distroName) {
                     $newCommandline = "wsl.exe -d $distroName"
-                    
-                    if ($PSCmdlet.ShouldProcess("WSL profile '$($wslProfile.name)'", "Change commandline to '$newCommandline'")) {
-                        # Update the profile
+
+                    if ($PSCmdlet.ShouldProcess("WSL 設定檔 '$($wslProfile.name)'", "將 commandline 變更為 '$newCommandline'")) {
+                        # 更新設定檔
                         $wslProfile | Add-Member -NotePropertyName 'commandline' -NotePropertyValue $newCommandline -Force
                         $wslFixed = $true
-                        Write-Log "Fixed WSL profile '$($wslProfile.name)' to use: $newCommandline"
+                        Write-Log "已修復 WSL 設定檔 '$($wslProfile.name)'：改用 $newCommandline"
                     }
                 }
             }
         }
-        
+
         if ($wslFixed) {
             Backup-File -Path $terminalSettings
             $settings | ConvertTo-Json -Depth 100 | Set-Content -Path $terminalSettings
             $script:ChangesMode = $true
             Write-Host ""
-            Write-Host "  WSL profiles updated to preserve directory on split!" -ForegroundColor Green
-            Write-Host "  See: https://github.com/microsoft/terminal/issues/3158" -ForegroundColor Gray
+            Write-Host "  已更新 WSL 設定檔：分割窗格時會保留目錄！" -ForegroundColor Green
+            Write-Host "  參考：https://github.com/microsoft/terminal/issues/3158" -ForegroundColor Gray
             Write-Host ""
         }
     }
     catch {
-        Write-Log "Could not check WSL profiles: $_" -Verbose
+        Write-Log "無法檢查 WSL 設定檔：$_" -Verbose
     }
 }
 
 # Summary
 if ($WhatIfPreference) {
-    Write-Log "Dry run complete - no changes were made"
+    Write-Log "乾跑完成：未做任何變更"
 }
 elseif ($script:ChangesMode) {
-    Write-Log "Done! Restart your terminal for changes to take effect."
+    Write-Log "完成！請重新啟動終端機讓變更生效。"
 }
 else {
-    Write-Log "Done! No changes were necessary - already configured."
+    Write-Log "完成！不需要任何變更——目前已設定完成。"
 }
